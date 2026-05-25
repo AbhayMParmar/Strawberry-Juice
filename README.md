@@ -1,28 +1,41 @@
-# 🍓 Strawberry Juice – Premium E-Commerce Experience
+# 🍓 Strawberry Juice — Premium E-Commerce Experience
 
-A modern, high-performance e-commerce web application designed for organic cold-pressed juice products. Built with a focus on cinematic UI, smooth interactions, and secure real-world payments.
+A modern, high-performance e-commerce web application built for organic cold-pressed juice products.  
+Focused on **cinematic UI, smooth interactions, and secure real-world payments**.
 
-🚀 Live Demo
+---
+
+## 🚀 Live Demo
 
 👉 https://strawberry-juice-three.vercel.app/
 
-✨ Features
-🎬 Scroll-based canvas animation for interactive product experience
+---
 
-🛍️ Dynamic product variants with real-time price updates
+## ✨ Features
 
-💳 Razorpay payment integration (UPI, Cards, Netbanking)
+- 🎬 Scroll-based canvas animation for interactive product experience  
+- 🛍️ Dynamic product variants with real-time price updates  
+- 💳 Razorpay payment integration (UPI, Cards, Netbanking)  
+- ⚡ Smooth and responsive UI/UX  
+- 🔐 Authentication & database powered by Supabase  
+- 📦 Order storage and management system  
 
-⚡ Fast and responsive UI with smooth transitions
+---
 
-🔐 Authentication & database using Supabase
+## 🧠 Tech Stack
 
-📦 Order management and storage system
+**Frontend**  
+- Next.js 16  
+- React 19  
 
-🧠 Tech Stack
+**Styling**  
+- Tailwind CSS  
 
-Frontend: Next.js 16, React 19
-Styling: Tailwind CSS
-Backend: Supabase (Auth + Database)
-Payments: Razorpay
-Animations: HTML Canvas API
+**Backend & Database**  
+- Supabase (Auth + Database)  
+
+**Payments**  
+- Razorpay  
+
+**Other**  
+- Canvas API (for animations)
