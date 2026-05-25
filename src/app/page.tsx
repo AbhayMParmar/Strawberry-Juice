@@ -3,6 +3,7 @@
 import HeroAnimation from "@/components/HeroAnimation";
 import Particles from "@/components/Particles";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+<<<<<<< HEAD
 import Link from "next/link";
 
 const HOMEPAGE_PRODUCTS = [
@@ -31,6 +32,8 @@ const HOMEPAGE_PRODUCTS = [
     description: "Wild forest berries with a fiery kick of fresh cold-pressed ginger root."
   }
 ];
+=======
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
 function StorySection() {
   const { ref, isVisible } = useIntersectionObserver(0.3);
@@ -102,6 +105,7 @@ function IngredientsSection() {
   );
 }
 
+<<<<<<< HEAD
 function ProductsSection() {
   const { ref, isVisible } = useIntersectionObserver(0.2);
 
@@ -167,6 +171,9 @@ function ProductsSection() {
     </section>
   );
 }
+=======
+import Link from "next/link";
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
 function CTASection() {
   const { ref, isVisible } = useIntersectionObserver(0.3);
@@ -199,7 +206,10 @@ export default function Home() {
       <div className="relative z-10 bg-transparent">
         <StorySection />
         <IngredientsSection />
+<<<<<<< HEAD
         <ProductsSection />
+=======
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
         <CTASection />
       </div>
     </main>

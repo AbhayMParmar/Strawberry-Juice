@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 const FRAME_COUNT = 192;
+<<<<<<< HEAD
 
 // Helper to calculate the optimal loading sequence
 const getLoadingSequence = () => {
@@ -42,18 +43,57 @@ const getLoadingSequence = () => {
 
   return sequence;
 };
+=======
+const START_FRAME = 1;
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
 export default function HeroAnimation() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+<<<<<<< HEAD
   const [scrollProgress, setScrollProgress] = useState(0);
   const imagesRef = useRef<(HTMLImageElement | null)[]>([]);
 
   useEffect(() => {
+=======
+  const [loaded, setLoaded] = useState(0);
+  const [images, setImages] = useState<HTMLImageElement[]>([]);
+  const [isReady, setIsReady] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  // Preload images
+  useEffect(() => {
+    let loadedCount = 0;
+    const loadedImages: HTMLImageElement[] = [];
+    const onImgLoad = () => {
+      loadedCount++;
+      setLoaded(loadedCount);
+      if (loadedCount === FRAME_COUNT) {
+        setImages(loadedImages);
+        setIsReady(true);
+      }
+    };
+
+    for (let i = START_FRAME; i <= FRAME_COUNT; i++) {
+      const img = new Image();
+      const frameNum = i.toString().padStart(5, "0");
+      img.src = `/frames/${frameNum}.png`;
+      img.onload = onImgLoad;
+      img.onerror = onImgLoad; // fallback to continue loading
+      loadedImages.push(img);
+    }
+  }, []);
+
+  // Scroll animation and drawing
+  useEffect(() => {
+    if (!isReady || images.length === 0) return;
+
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
+<<<<<<< HEAD
     const loadedImages: (HTMLImageElement | null)[] = new Array(FRAME_COUNT).fill(null);
     imagesRef.current = loadedImages;
 
@@ -81,6 +121,15 @@ export default function HeroAnimation() {
       if (img) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
+=======
+    const renderFrame = (frameIndex: number) => {
+      if (images[frameIndex]) {
+        // Clear and draw image scaled to fit/cover
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const img = images[frameIndex];
+        
+        // Calculate aspect ratio to cover the canvas
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
         const canvasRatio = canvas.width / canvas.height;
         const imgRatio = img.width / img.height;
         
@@ -90,6 +139,7 @@ export default function HeroAnimation() {
         let offsetY = 0;
         
         if (canvasRatio > imgRatio) {
+<<<<<<< HEAD
           drawWidth = canvas.width;
           drawHeight = canvas.width / imgRatio;
           offsetY = (canvas.height - drawHeight) / 2;
@@ -97,22 +147,40 @@ export default function HeroAnimation() {
           drawHeight = canvas.height;
           drawWidth = canvas.height * imgRatio;
           offsetX = (canvas.width - drawWidth) / 2;
+=======
+           drawWidth = canvas.width;
+           drawHeight = canvas.width / imgRatio;
+           offsetY = (canvas.height - drawHeight) / 2;
+        } else {
+           drawHeight = canvas.height;
+           drawWidth = canvas.height * imgRatio;
+           offsetX = (canvas.width - drawWidth) / 2;
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
         }
         
         ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
       }
     };
 
+<<<<<<< HEAD
     let currentFrameIndex = 0;
 
     const updateFrameIndex = () => {
       if (!containerRef.current) return 0;
+=======
+    const handleResize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      if (!containerRef.current) return;
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
       const { top, height } = containerRef.current.getBoundingClientRect();
       const scrollY = window.scrollY;
       const containerTop = top + scrollY;
       const maxScroll = height - window.innerHeight;
       let progress = (scrollY - containerTop) / maxScroll;
       progress = Math.max(0, Math.min(1, progress));
+<<<<<<< HEAD
       setScrollProgress(progress);
       return Math.floor(progress * (FRAME_COUNT - 1));
     };
@@ -171,18 +239,78 @@ export default function HeroAnimation() {
     };
 
     startLoading();
+=======
+      renderFrame(Math.floor(progress * (FRAME_COUNT - 1)));
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    let animationFrameId: number;
+    
+    const handleScroll = () => {
+      if (!containerRef.current) return;
+      const { top, height } = containerRef.current.getBoundingClientRect();
+      const scrollY = window.scrollY;
+      const containerTop = top + scrollY;
+      const maxScroll = height - window.innerHeight;
+      
+      let progress = (scrollY - containerTop) / maxScroll;
+      progress = Math.max(0, Math.min(1, progress));
+      setScrollProgress(progress);
+      
+      const frameIndex = Math.floor(progress * (FRAME_COUNT - 1));
+      
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      animationFrameId = requestAnimationFrame(() => renderFrame(frameIndex));
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll(); // Initial draw
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("scroll", handleScroll);
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
+<<<<<<< HEAD
   }, []);
 
   const taglineOpacity = Math.max(0, Math.min(1, (scrollProgress - 0.6) * 2.5));
 
   return (
     <div ref={containerRef} className="relative w-full h-[4000px]">
+=======
+  }, [isReady, images]);
+
+  const taglineOpacity = Math.max(0, Math.min(1, (scrollProgress - 0.6) * 2.5)); // Fades in from 60% to 100%
+
+  return (
+    <div ref={containerRef} className="relative w-full h-[4000px]">
+      {!isReady && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#050505] text-white font-outfit">
+          <div className="w-full max-w-md px-8">
+            <h1 className="text-3xl md:text-4xl tracking-[0.4em] font-medium text-center uppercase mb-8 pl-[0.4em]">
+              Strawberry
+            </h1>
+            
+            <div className="w-full h-[1px] bg-white/20 mb-4 relative overflow-hidden">
+              <div 
+                className="absolute top-0 left-0 h-full bg-white transition-all duration-300 ease-out"
+                style={{ width: `${(loaded / FRAME_COUNT) * 100}%` }}
+              />
+            </div>
+            
+            <div className="flex items-center justify-between text-gray-500 text-[10px] md:text-xs tracking-[0.15em] uppercase font-mono">
+              <span>Loading Experience</span>
+              <span>{String(Math.round((loaded / FRAME_COUNT) * 100)).padStart(3, '0')}%</span>
+            </div>
+          </div>
+        </div>
+      )}
+      
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
       <div className="sticky top-0 w-full h-screen overflow-hidden bg-[#050505]">
         <canvas ref={canvasRef} className="w-full h-full object-cover" />
         

@@ -3,7 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+<<<<<<< HEAD
     "dev": "node --no-deprecation scripts/start-dev.js",
+=======
+    "dev": "next dev",
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
     "build": "next build",
     "start": "next start",
     "lint": "eslint"

@@ -12,8 +12,12 @@ const razorpayInstance = new Razorpay({
 
 export async function createRazorpayOrder(formData: FormData) {
   const quantity = parseInt(formData.get("quantity") as string) || 1;
+<<<<<<< HEAD
   const price = parseFloat(formData.get("price") as string) || 150.00;
   const totalAmount = Math.round(quantity * price * 100); // Amount in paise
+=======
+  const totalAmount = quantity * 2.00 * 100; // Amount in paise
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
   const options = {
     amount: totalAmount,
@@ -39,11 +43,16 @@ export async function placeOrder(formData: FormData) {
   }
 
   const quantity = parseInt(formData.get("quantity") as string) || 1;
+<<<<<<< HEAD
   const price = parseFloat(formData.get("price") as string) || 150.00;
   const productName = (formData.get("productName") as string) || "Original Strawberry Blend";
   const edition = (formData.get("edition") as string) || "Genesis Edition";
   const total = quantity * price;
   const details = `${quantity} x ${productName} (${edition})`;
+=======
+  const total = quantity * 2.00; // pricePerBottle is 2.00
+  const details = `${quantity} x Premium Strawberry Blend`;
+>>>>>>> e8c3c7d7d153ba0648cd7c9be385b57ab6936270
 
   const { error } = await supabase.from("orders").insert({
     user_id: user.id,
