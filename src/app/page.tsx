@@ -29,6 +29,30 @@ const HOMEPAGE_PRODUCTS = [
     price: 200,
     image: "/products/wild_berry.png",
     description: "Wild forest berries with a fiery kick of fresh cold-pressed ginger root."
+  },
+  {
+    id: "lemonade",
+    name: "Strawberry Lemonade Spark",
+    edition: "Zesty Edition",
+    price: 150,
+    image: "/products/lemonade.png",
+    description: "Zesty Meyer lemon juice infused with sweet field strawberries and fresh mint."
+  },
+  {
+    id: "coconut",
+    name: "Strawberry Coconut Splash",
+    edition: "Tropical Edition",
+    price: 30,
+    image: "/products/coconut.png",
+    description: "Pure refreshing organic coconut water blended with ripe cold-pressed strawberries."
+  },
+  {
+    id: "basil",
+    name: "Strawberry Basil Fusion",
+    edition: "Herbal Edition",
+    price: 160,
+    image: "/products/basil.png",
+    description: "A sophisticated pairing of sweet sun-ripened strawberries and peppery sweet basil."
   }
 ];
 

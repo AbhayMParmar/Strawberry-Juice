@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Script from "next/script";
-import { placeOrder, createRazorpayOrder } from "./actions";
+import { confirmPayment, createRazorpayOrder } from "./actions";
 
 const PRODUCTS = [
   {
@@ -33,6 +33,33 @@ const PRODUCTS = [
     price: 200.00,
     image: "/products/wild_berry.png",
     description: "A bold, invigorating twist. Wild forest strawberries blended with fresh cold-pressed ginger root for a zesty kick."
+  },
+  {
+    id: "lemonade",
+    name: "Strawberry Lemonade Spark",
+    edition: "Zesty Edition",
+    collection: "Collection 004",
+    price: 150.00,
+    image: "/products/lemonade.png",
+    description: "Zesty Meyer lemon juice infused with sweet field strawberries and fresh mint."
+  },
+  {
+    id: "coconut",
+    name: "Strawberry Coconut Splash",
+    edition: "Tropical Edition",
+    collection: "Collection 005",
+    price: 30.00,
+    image: "/products/coconut.png",
+    description: "Pure refreshing organic coconut water blended with ripe cold-pressed strawberries."
+  },
+  {
+    id: "basil",
+    name: "Strawberry Basil Fusion",
+    edition: "Herbal Edition",
+    collection: "Collection 006",
+    price: 160.00,
+    image: "/products/basil.png",
+    description: "A sophisticated pairing of sweet sun-ripened strawberries and peppery sweet basil."
   }
 ];
 
@@ -42,14 +69,79 @@ function OrderPageContent() {
   const initialIndex = PRODUCTS.findIndex((p) => p.id === variantParam);
 
   const [selectedProductIdx, setSelectedProductIdx] = useState(initialIndex !== -1 ? initialIndex : 0);
-  const [quantity, setQuantity] = useState(1);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [imageTransition, setImageTransition] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const activeProduct = PRODUCTS[selectedProductIdx];
-  const pricePerBottle = activeProduct.price;
-  const total = (quantity * pricePerBottle).toFixed(2);
+
+  // Initialize independent quantities for all variants: 0 by default, 1 for initial variant
+  const [quantities, setQuantities] = useState<Record<string, number>>(() => {
+    const initialQuantities: Record<string, number> = {};
+    PRODUCTS.forEach((p) => {
+      initialQuantities[p.id] = 0;
+    });
+    const activeId = PRODUCTS[initialIndex !== -1 ? initialIndex : 0]?.id;
+    if (activeId) {
+      initialQuantities[activeId] = 1;
+    }
+    return initialQuantities;
+  });
+
+  // Load state from localStorage on mount
+  useEffect(() => {
+    const savedQuantities = localStorage.getItem("strawberry_juice_quantities");
+    if (savedQuantities) {
+      try {
+        setQuantities(JSON.parse(savedQuantities));
+      } catch (e) {
+        console.error("Failed to parse quantities", e);
+      }
+    }
+
+    const savedIsConfirmed = localStorage.getItem("strawberry_juice_is_confirmed");
+    if (savedIsConfirmed) {
+      setIsConfirmed(savedIsConfirmed === "true");
+    }
+
+    const savedSelectedIdx = localStorage.getItem("strawberry_juice_selected_idx");
+    if (savedSelectedIdx) {
+      const idx = parseInt(savedSelectedIdx, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < PRODUCTS.length) {
+        setSelectedProductIdx(idx);
+      }
+    }
+    
+    setIsInitialized(true);
+  }, []);
+
+  // Save state to localStorage when it changes (only after client-side hydration is complete)
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem("strawberry_juice_quantities", JSON.stringify(quantities));
+    }
+  }, [quantities, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem("strawberry_juice_is_confirmed", isConfirmed.toString());
+    }
+  }, [isConfirmed, isInitialized]);
+
+  useEffect(() => {
+    if (isInitialized) {
+      localStorage.setItem("strawberry_juice_selected_idx", selectedProductIdx.toString());
+    }
+  }, [selectedProductIdx, isInitialized]);
+
+  // Calculate sum of selected variant prices
+  const total = PRODUCTS.reduce((sum, prod) => {
+    const qty = quantities[prod.id] || 0;
+    return sum + qty * prod.price;
+  }, 0).toFixed(2);
+
+  const totalItemsCount = PRODUCTS.reduce((sum, prod) => sum + (quantities[prod.id] || 0), 0);
 
   // Sync index if URL param changes after mount
   useEffect(() => {
@@ -57,6 +149,12 @@ function OrderPageContent() {
       const idx = PRODUCTS.findIndex((p) => p.id === variantParam);
       if (idx !== -1) {
         setSelectedProductIdx(idx);
+        setQuantities((prev) => {
+          if ((prev[variantParam] || 0) === 0) {
+            return { ...prev, [variantParam]: 1 };
+          }
+          return prev;
+        });
       }
     }
   }, [variantParam]);
@@ -67,28 +165,76 @@ function OrderPageContent() {
     const timer = setTimeout(() => setImageTransition(false), 250);
     return () => clearTimeout(timer);
   }, [selectedProductIdx]);
-  const handleIncrement = () => setQuantity((prev) => Math.min(prev + 1, 99));
-  const handleDecrement = () => setQuantity((prev) => Math.max(prev - 1, 1));
+
+  const handleSelectVariant = (idx: number) => {
+    setSelectedProductIdx(idx);
+    const activeId = PRODUCTS[idx].id;
+    setQuantities((prev) => {
+      if ((prev[activeId] || 0) === 0) {
+        return { ...prev, [activeId]: 1 };
+      }
+      return prev;
+    });
+  };
+
+  const handleIncrement = () => {
+    const activeId = activeProduct.id;
+    setQuantities((prev) => ({
+      ...prev,
+      [activeId]: Math.min((prev[activeId] || 0) + 1, 99),
+    }));
+  };
+
+  const handleDecrement = () => {
+    const activeId = activeProduct.id;
+    setQuantities((prev) => {
+      if ((prev[activeId] || 0) > 0) {
+        return {
+          ...prev,
+          [activeId]: prev[activeId] - 1,
+        };
+      }
+      // Smart fallback: find the first variant with qty > 0 and decrement it
+      const fallbackProd = PRODUCTS.find((p) => (prev[p.id] || 0) > 0);
+      if (fallbackProd) {
+        return {
+          ...prev,
+          [fallbackProd.id]: prev[fallbackProd.id] - 1,
+        };
+      }
+      return prev;
+    });
+  };
 
   const onSubmit = (formData: FormData) => {
-    // Append the selected product details to the form data
-    formData.append("price", activeProduct.price.toString());
-    formData.append("productName", activeProduct.name);
-    formData.append("edition", activeProduct.edition);
+    const selectedItems = PRODUCTS.filter((p) => (quantities[p.id] || 0) > 0);
+    const detailsString = selectedItems
+      .map((p) => `${quantities[p.id]} x ${p.name} (${p.edition})`)
+      .join(", ");
+    const totalItems = selectedItems.reduce((sum, p) => sum + (quantities[p.id] || 0), 0);
+    const totalPrice = selectedItems.reduce(
+      (sum, p) => sum + (quantities[p.id] || 0) * p.price,
+      0
+    );
+
+    formData.append("total", totalPrice.toString());
+    formData.append("items_count", totalItems.toString());
+    formData.append("details", detailsString);
+
     startTransition(async () => {
       try {
-        const { orderId, amount, currency } = await createRazorpayOrder(formData);
+        const { orderId, dbOrderId, amount, currency } = await createRazorpayOrder(formData);
 
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_Slnt2aieOZXUo8",
           amount: amount.toString(),
           currency: currency,
           name: "Strawberry Juice Premium",
-          description: `${activeProduct.name} - ${activeProduct.edition}`,
+          description: detailsString.length > 40 ? `${totalItems} Premium Blends` : detailsString,
           order_id: orderId,
           handler: async function (response: any) {
             try {
-              await placeOrder(formData);
+              await confirmPayment(dbOrderId);
               setIsConfirmed(true);
             } catch (err) {
               console.error("Failed to save order to database:", err);
@@ -148,10 +294,10 @@ function OrderPageContent() {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 min-h-[55vh] lg:h-screen flex flex-col px-6 py-6 lg:px-12 relative bg-[#0A0A0A] overflow-y-auto lg:overflow-hidden justify-between">
+      <div className="w-full lg:w-1/2 min-h-[55vh] lg:h-screen flex flex-col px-6 py-4 lg:py-6 lg:px-12 relative bg-[#0A0A0A] overflow-y-auto lg:overflow-hidden justify-between">
         
         {/* Top Left Back Link */}
-        <div className="w-full max-w-md mx-auto pt-2 lg:pt-4 mb-4">
+        <div className="w-full max-w-md mx-auto pt-1 lg:pt-2 mb-2">
           <Link href="/#shop" className="text-gray-400 hover:text-white transition-colors text-[10px] font-bold tracking-widest flex items-center gap-2 uppercase w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             Back
@@ -171,12 +317,49 @@ function OrderPageContent() {
 
             <h1 className="text-2xl md:text-3xl font-extrabold mb-3 tracking-tight">Order Confirmed!</h1>
             
-            <p className="text-gray-400 text-xs leading-relaxed mb-8 max-w-sm px-4">
-              Thank you for your purchase of {activeProduct.name}. We are preparing your premium blend for shipment.
+            <p className="text-gray-400 text-xs leading-relaxed mb-5 max-w-sm px-4">
+              Thank you for your purchase. We are preparing your premium {totalItemsCount > 1 ? "blends" : "blend"} for shipment.
             </p>
+
+            {/* Order Summary Box */}
+            <div className="w-full max-w-sm bg-white/[0.02] border border-white/5 rounded-2xl p-4 mb-6 text-left space-y-2.5">
+              <div className="text-[9px] text-gray-500 font-bold uppercase tracking-[0.15em] border-b border-white/5 pb-2">
+                Order Summary ({totalItemsCount} {totalItemsCount > 1 ? "Items" : "Item"})
+              </div>
+              <div className="space-y-2 max-h-[140px] overflow-y-auto no-scrollbar">
+                {PRODUCTS.filter((p) => (quantities[p.id] || 0) > 0).map((p) => (
+                  <div key={p.id} className="flex justify-between items-center text-xs">
+                    <span className="text-gray-300 font-medium">
+                      {p.name.replace("Strawberry", "").trim()}
+                    </span>
+                    <span className="text-gray-500 font-mono text-[11px]">
+                      {quantities[p.id]}x @ ₹{p.price}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center border-t border-white/5 pt-2 text-sm font-bold text-white">
+                <span>Total Paid</span>
+                <span className="text-primary">₹{total}</span>
+              </div>
+            </div>
 
             <Link 
               href="/#shop"
+              onClick={() => {
+                // Reset states and clear localStorage to allow starting a new order
+                const resetQuantities: Record<string, number> = {};
+                PRODUCTS.forEach((p) => {
+                  resetQuantities[p.id] = 0;
+                });
+                resetQuantities[PRODUCTS[0].id] = 1;
+                setQuantities(resetQuantities);
+                setSelectedProductIdx(0);
+                setIsConfirmed(false);
+                localStorage.removeItem("strawberry_juice_quantities");
+                localStorage.removeItem("strawberry_juice_is_confirmed");
+                localStorage.removeItem("strawberry_juice_selected_idx");
+              }}
               className="bg-white hover:bg-gray-200 text-black font-bold text-[10px] lg:text-xs tracking-[0.2em] uppercase py-3 px-8 lg:py-4 lg:px-10 rounded-full transition-all duration-300"
             >
               BACK TO PRODUCTS
@@ -184,31 +367,29 @@ function OrderPageContent() {
           </div>
         ) : (
           /* --- Normal Order State --- */
-          <div className="max-w-md w-full mx-auto space-y-4 lg:space-y-6 pb-6">
+          <div className="max-w-md w-full mx-auto space-y-3 lg:space-y-4 pb-4">
             
-            {/* Header row: Stock Tag */}
-            <div className="flex items-center justify-end">
-              <div className="bg-red-500/10 text-red-500 text-[9px] font-bold px-2 py-1 rounded-full border border-red-500/20 uppercase tracking-widest">
-                In Stock
-              </div>
-            </div>
-
             {/* Titles & Description */}
-            <div className="space-y-2">
-              <h1 className="text-2xl lg:text-3xl font-extrabold leading-none tracking-tight text-white">
-                {activeProduct.name}
-              </h1>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-4">
+                <h1 className="text-xl lg:text-2xl font-extrabold leading-none tracking-tight text-white">
+                  {activeProduct.name}
+                </h1>
+                <div className="bg-red-500/10 text-red-500 text-[8px] font-bold px-2 py-0.5 rounded-full border border-red-500/20 uppercase tracking-widest whitespace-nowrap">
+                  In Stock
+                </div>
+              </div>
               
-              <div className="text-[10px] text-primary font-bold uppercase tracking-wider">
+              <div className="text-[9px] text-primary font-bold uppercase tracking-wider">
                 {activeProduct.edition}
               </div>
               
-              <p className="text-gray-400 text-[11px] lg:text-xs leading-relaxed max-w-[95%] pt-1">
+              <p className="text-gray-400 text-[10px] lg:text-[11px] leading-normal max-w-[95%]">
                 {activeProduct.description}
               </p>
 
               {/* Slider / Progress UI Element */}
-              <div className="pt-2 pb-1">
+              <div className="pt-1 pb-1">
                 <div className="w-full h-[1px] bg-white/10 relative">
                   <div className="absolute top-1/2 left-0 -translate-y-1/2 w-2 h-2 bg-primary rounded-full" />
                 </div>
@@ -216,28 +397,34 @@ function OrderPageContent() {
             </div>
 
             {/* Product Variant Selector */}
-            <div className="space-y-2">
-              <span className="text-[10px] lg:text-xs text-gray-400 font-bold tracking-[0.15em] uppercase block">Select Variant</span>
+            <div className="space-y-1.5">
+              <span className="text-[9px] lg:text-[10px] text-gray-400 font-bold tracking-[0.15em] uppercase block">Select Variant</span>
               <div className="grid grid-cols-3 gap-2">
-                {PRODUCTS.map((prod, idx) => (
-                  <button
-                    key={prod.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedProductIdx(idx);
-                      setQuantity(1); // reset quantity to 1 on variant change
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all duration-300 ${
-                      selectedProductIdx === idx
-                        ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(255,23,68,0.2)]"
-                        : "border-white/10 hover:border-white/20 bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className="text-[8px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">{prod.edition.split(' ')[0]}</div>
-                    <div className="text-white text-xs font-semibold mb-1 truncate">{prod.name.replace("Strawberry", "").trim()}</div>
-                    <div className="text-white/60 text-xs font-light">₹{prod.price}</div>
-                  </button>
-                ))}
+                {PRODUCTS.map((prod, idx) => {
+                  const qty = quantities[prod.id] || 0;
+                  return (
+                    <button
+                      key={prod.id}
+                      type="button"
+                      onClick={() => handleSelectVariant(idx)}
+                      className={`py-1.5 px-2 rounded-xl border text-left transition-all duration-300 relative ${
+                        selectedProductIdx === idx
+                          ? "border-primary bg-primary/5 shadow-[0_0_15px_rgba(255,23,68,0.2)]"
+                          : "border-white/10 hover:border-white/20 bg-white/[0.02]"
+                      }`}
+                    >
+                      {/* Quantity Badge */}
+                      {qty > 0 && (
+                        <div className="absolute top-1 right-1 bg-primary text-white text-[7px] font-bold px-1 py-0.5 rounded-md leading-none">
+                          {qty}x
+                        </div>
+                      )}
+                      <div className="text-[7px] text-gray-400 font-bold uppercase tracking-wider mb-0.5 truncate pr-3">{prod.edition.split(' ')[0]}</div>
+                      <div className="text-white text-[11px] font-semibold mb-0.5 truncate pr-3">{prod.name.replace("Strawberry", "").trim()}</div>
+                      <div className="text-white/60 text-[10px] font-light">₹{prod.price}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {/* Divider */}
@@ -245,9 +432,11 @@ function OrderPageContent() {
 
             {/* Quantity Controls */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] lg:text-xs text-gray-400 font-bold tracking-[0.15em] uppercase">Quantity</span>
+              <span className="text-[9px] lg:text-[10px] text-gray-400 font-bold tracking-[0.15em] uppercase">
+                Overall Qty
+              </span>
               
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-2 py-1">
+              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-2 py-0.5">
                 <button 
                   type="button"
                   onClick={handleDecrement}
@@ -256,7 +445,9 @@ function OrderPageContent() {
                 >
                   -
                 </button>
-                <span className="w-4 text-center text-white font-medium text-xs">{quantity}</span>
+                <span className="w-4 text-center text-white font-medium text-xs">
+                  {totalItemsCount}
+                </span>
                 <button 
                   type="button"
                   onClick={handleIncrement}
@@ -268,21 +459,31 @@ function OrderPageContent() {
               </div>
             </div>
 
+            {/* Cart Summary Details */}
+            {totalItemsCount > 0 && (
+              <div className="text-[10px] text-gray-500 font-medium tracking-wide flex flex-wrap gap-x-2 gap-y-1 py-0.5 border-t border-white/5 pt-1.5">
+                <span className="text-gray-400 uppercase tracking-widest text-[8px] font-bold flex items-center">Cart:</span>
+                {PRODUCTS.filter(p => (quantities[p.id] || 0) > 0).map(p => (
+                  <span key={p.id} className="text-white bg-white/[0.03] border border-white/5 px-2 py-0.5 rounded-md text-[9px] whitespace-nowrap">
+                    {p.name.replace("Strawberry", "").replace(/\s+/g, " ").trim()} ({quantities[p.id]}x)
+                  </span>
+                ))}
+              </div>
+            )}
+
             {/* Total Price */}
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[10px] lg:text-xs text-gray-400 font-bold tracking-[0.15em] uppercase">Total</span>
-              <span className="text-2xl lg:text-3xl font-light text-white tracking-tight">₹{total}</span>
+            <div className="flex items-center justify-between border-t border-white/5 pt-1.5">
+              <span className="text-[9px] lg:text-[10px] text-gray-400 font-bold tracking-[0.15em] uppercase">Total</span>
+              <span className="text-xl lg:text-2xl font-light text-white tracking-tight">₹{total}</span>
             </div>
 
             {/* Purchase Button Area */}
-            <div className="pt-2 flex items-center gap-3">
+            <div className="pt-1 flex items-center gap-3">
               <form action={onSubmit} className="w-full">
-                <input type="hidden" name="quantity" value={quantity} />
-                
                 <button 
                   type="submit" 
-                  disabled={isPending}
-                  className="group relative w-full bg-white text-black font-bold text-[10px] lg:text-xs tracking-[0.1em] uppercase py-3.5 px-4 rounded-xl flex items-center justify-center overflow-hidden transition-all disabled:opacity-80 cursor-pointer"
+                  disabled={isPending || totalItemsCount === 0}
+                  className="group relative w-full bg-white text-black font-bold text-[10px] lg:text-xs tracking-[0.1em] uppercase py-3 px-4 rounded-xl flex items-center justify-center overflow-hidden transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {/* Background slide element */}
                   <div className="absolute inset-0 bg-red-500 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-out z-0" />
@@ -297,6 +498,8 @@ function OrderPageContent() {
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       </>
+                    ) : totalItemsCount === 0 ? (
+                      "Select variants to purchase"
                     ) : (
                       <>
                         Purchase Now

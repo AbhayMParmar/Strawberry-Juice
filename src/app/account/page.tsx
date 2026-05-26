@@ -74,7 +74,7 @@ export default async function AccountPage() {
             </div>
             <div>
               <p className="text-[10px] text-gray-500 font-bold tracking-[0.2em] uppercase mb-1">Total Invested</p>
-              <p className="text-xl md:text-2xl font-bold text-white tracking-tight">${totalInvested}</p>
+              <p className="text-xl md:text-2xl font-bold text-white tracking-tight">₹{totalInvested}</p>
             </div>
           </div>
 
@@ -128,7 +128,7 @@ export default async function AccountPage() {
                         <span className="bg-green-500/10 text-green-500 text-[9px] md:text-[10px] font-bold px-2 py-1 md:px-3 md:py-1 rounded-full border border-green-500/20 uppercase tracking-wider mb-1 md:mb-2">
                           {order.status}
                         </span>
-                        <span className="text-white font-bold text-sm md:text-base">${Number(order.total).toFixed(2)}</span>
+                        <span className="text-white font-bold text-sm md:text-base">₹{Number(order.total).toFixed(2)}</span>
                       </div>
                     </div>
                   );

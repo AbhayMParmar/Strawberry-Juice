@@ -11,9 +11,40 @@ const razorpayInstance = new Razorpay({
 });
 
 export async function createRazorpayOrder(formData: FormData) {
-  const quantity = parseInt(formData.get("quantity") as string) || 1;
-  const price = parseFloat(formData.get("price") as string) || 150.00;
-  const totalAmount = Math.round(quantity * price * 100); // Amount in paise
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  // Parse fields supporting both single product checkout and multi-product cart checkout
+  const total = parseFloat(formData.get("total") as string) || 
+                (parseInt(formData.get("quantity") as string) || 1) * (parseFloat(formData.get("price") as string) || 150.00);
+  const itemsCount = parseInt(formData.get("items_count") as string) || 
+                      parseInt(formData.get("quantity") as string) || 1;
+  const details = (formData.get("details") as string) || 
+                  `${parseInt(formData.get("quantity") as string) || 1} x ${formData.get("productName") || "Original Strawberry Blend"} (${formData.get("edition") || "Genesis Edition"})`;
+
+  // Store the pending order in the database immediately
+  const { data: dbOrder, error: dbError } = await supabase
+    .from("orders")
+    .insert({
+      user_id: user.id,
+      total: total,
+      items_count: itemsCount,
+      details: details,
+      status: "PENDING",
+    })
+    .select()
+    .single();
+
+  if (dbError) {
+    console.error("Error creating pending order:", dbError);
+    throw new Error(dbError.message);
+  }
+
+  const totalAmount = Math.round(total * 100); // Amount in paise
 
   const options = {
     amount: totalAmount,
@@ -23,14 +54,19 @@ export async function createRazorpayOrder(formData: FormData) {
 
   try {
     const order = await razorpayInstance.orders.create(options);
-    return { orderId: order.id, amount: options.amount, currency: options.currency };
+    return { 
+      orderId: order.id, 
+      dbOrderId: dbOrder.id, 
+      amount: options.amount, 
+      currency: options.currency 
+    };
   } catch (error: any) {
     console.error("Error creating Razorpay order:", error);
     throw new Error(error.message);
   }
 }
 
-export async function placeOrder(formData: FormData) {
+export async function confirmPayment(dbOrderId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -38,26 +74,17 @@ export async function placeOrder(formData: FormData) {
     redirect("/login");
   }
 
-  const quantity = parseInt(formData.get("quantity") as string) || 1;
-  const price = parseFloat(formData.get("price") as string) || 150.00;
-  const productName = (formData.get("productName") as string) || "Original Strawberry Blend";
-  const edition = (formData.get("edition") as string) || "Genesis Edition";
-  const total = quantity * price;
-  const details = `${quantity} x ${productName} (${edition})`;
-
-  const { error } = await supabase.from("orders").insert({
-    user_id: user.id,
-    total: total,
-    items_count: quantity,
-    details: details,
-    status: 'PAID'
-  });
+  const { error } = await supabase
+    .from("orders")
+    .update({ status: "PAID" })
+    .eq("id", dbOrderId)
+    .eq("user_id", user.id);
 
   if (error) {
-    console.error("Failed to place order:", error);
+    console.error("Failed to confirm payment:", error);
     throw new Error(error.message);
   }
 
-  revalidatePath('/account');
+  revalidatePath("/account");
   return { success: true };
 }
